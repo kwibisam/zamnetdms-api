@@ -19,12 +19,8 @@ class UserResource extends JsonResource
             'name'=> $this->name,
             'email'=> $this->email,
             'workspaces' => $this->workspaces,
-         
-            'defaultSpace' => [
-                'id' => $this->defaultWorkspace()->first()->id,
-                'name' => $this->defaultWorkspace()->first()->name
-            ],
-            'roles' => $this->roles->pluck('name'),
+            'department' => $this->department,
+            'roles' => $this->roles,
         ];
     }
 }

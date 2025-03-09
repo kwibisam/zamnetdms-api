@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DepartmentsController;
 use App\Http\Controllers\Api\DocumentController;
 use App\Http\Controllers\Api\DocumentTypesController;
 use App\Http\Controllers\Api\RolesController;
@@ -14,15 +15,19 @@ Route::controller(AuthController::class)->group(function() {
     Route::post('login', 'login');
     Route::get('users', 'index')->middleware('auth:sanctum');
     Route::get('user','showProfile')->middleware('auth:sanctum');
+    Route::get('users/{id}','show')->middleware('auth:sanctum');
     Route::post('logout', 'logout')->middleware('auth:sanctum');
 
     Route::put('users/{user_id}/workspaces/{workspace_id}', 'addUserToWorkSpace')->middleware('auth:sanctum');
+    // Route::put('users/{user_id}/workspaces/default/{workspace_id}', 'setDefaultWorkspace')->middleware('auth:sanctum');
 
     Route::delete('users/{user_id}/workspaces/{workspace_id}', 'removeUserFromWorkSpace')->middleware('auth:sanctum');
-    Route::put('users/{user_id}/workspaces/{workspace_id}', 'setDefaultWorkspace')->middleware('auth:sanctum');
+
     Route::delete('users/{user_id}/roles/{role_id}', 'removeUserRole')->middleware('auth:sanctum');
     
     Route::put('users/{user_id}/roles/{role_id}', 'addRoleToUser')->middleware('auth:sanctum');
+
+    Route::put('users/{user_id}/departments/{department_id}', 'updateUserDepartment')->middleware('auth:sanctum');
 });
 
 Route::controller(RolesController::class)
@@ -42,6 +47,18 @@ Route::controller(WorkSpaceController::class)
     Route::put('workspaces/{id}', 'update');
     Route::delete('workspaces/{id}', 'delete');
 });
+
+
+Route::controller(DepartmentsController::class)
+->group(function(){
+    Route::post('departments', 'store');
+    Route::get('departments', 'index');
+    Route::get('departments/{id}', 'show');
+    Route::put('departments/{id}', 'update');
+    Route::delete('departments/{id}', 'delete');
+});
+
+
 
 Route::controller(DocumentController::class)
 ->group(function ()

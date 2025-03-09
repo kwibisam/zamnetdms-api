@@ -23,6 +23,13 @@ return new class extends Migration
             ->nullOnDelete();
 
 
+            
+            $table->unsignedBigInteger('department_id');
+            $table->foreign('department_id')
+            ->references('id')
+            ->on('departments')
+            ->restrictOnDelete();
+
             $table->unsignedBigInteger('document_type');
             $table->foreign('document_type')
             ->references('id')

@@ -17,8 +17,8 @@ return new class extends Migration
             $table->unsignedBigInteger('user_id');
             $table->unsignedBigInteger('workspace_id');
         
-            // Ensure a user can only have one "default" workspace
-            $table->unique(['user_id', 'is_default']);
+            // // Ensure a user can only have one "default" workspace
+            // $table->unique(['user_id', 'is_default']);
         
             // Ensure a user cannot have the same workspace multiple times
             $table->unique(['user_id', 'workspace_id']);

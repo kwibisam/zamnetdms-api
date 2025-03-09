@@ -7,10 +7,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Http\Resources\UserResource;
+use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkSpace;
-use Exception;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,7 +18,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use PhpParser\Node\Stmt\TryCatch;
 
 class AuthController extends Controller
 {
@@ -47,39 +46,22 @@ class AuthController extends Controller
         return ResponseHelper::error(message: $response->message(), statusCode: $response->code());
     }
 
-    $workspace = WorkSpace::find($request->workspace_id);
-    if (!$workspace) {
-        return ResponseHelper::error(message: "Workspace not found, try again", statusCode: 404);
+    $department = Department::find($request->department_id);
+    if (!$department) {
+        return ResponseHelper::error(message: "department not found, try again", statusCode: 404);
     }
 
     DB::beginTransaction();
     try {
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
-
-        if (!$user) {
-            DB::rollBack();
-            return ResponseHelper::error(message: "Failed to create user, try again", statusCode: 400);
-        }
-
-        // Assign workspace and role
+        $user = new User();
+        $user->name = $request->name;
+        $user->email = $request->email;
+        $user->password = Hash::make($request->password);
+        $user->department_id = $department->id;
+        $user->save();
+        // Assign role
         $userRole = Role::firstOrCreate(['name' => 'user']);
-        $user->workspaces()->attach($workspace->id);
         $user->roles()->attach($userRole->id);
-
-        // Update user workspace default status in one query
-        DB::table('user_workspace')
-            ->where('user_id', $user->id)
-            ->update(['is_default' => false]);
-
-        DB::table('user_workspace')
-            ->where('user_id', $user->id)
-            ->where('workspace_id', $workspace->id)
-            ->update(['is_default' => true]);
-
         DB::commit();
 
         return ResponseHelper::success(
@@ -146,6 +128,30 @@ class AuthController extends Controller
         }
     }
 
+
+
+    /**
+     * get specified user
+     * @return JsonResponse
+     */
+    public function show(Request $request) 
+    {
+        try {
+            // dd(Auth::user());
+            $user = User::find($request->id);
+            if(!$user) {
+                return ResponseHelper::error(message: 'user not found', statusCode: 404);
+            }
+            
+            return ResponseHelper::success(message: "user fetched successfully", data: new UserResource($user)); 
+        } catch (\Throwable $th) {
+            //throw $th;
+            Log::error('error getting auth user '. $th->getMessage());
+            return ResponseHelper::error(message: 'failed to get user', statusCode: 401);
+        }
+    }
+
+
       /**
      * Deletes auth user token
      * @return JsonResponse
@@ -167,15 +173,6 @@ class AuthController extends Controller
         }
     }
 
-
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-    }
 
     /**
      * Remove the specified resource from storage.
@@ -283,36 +280,63 @@ class AuthController extends Controller
 
   
 
-    public function setDefaultWorkspace($user_id, $workspace_id)
+public function setDefaultWorkspace($user_id, $workspace_id)
 {
     try {
-        DB::beginTransaction();
-
+        // Find the user
         $user = User::find($user_id);
         if (!$user) {
             return ResponseHelper::error(message: "User not found", statusCode: 404);
         }
 
-        $user_workspace = $user->workspaces->where('id', $workspace_id)->first();
+        // Ensure the workspace belongs to the user
+        $user_workspace = DB::table('user_workspace')
+            ->where('user_id', $user_id)
+            ->where('workspace_id', $workspace_id)
+            ->first();
+
         if (!$user_workspace) {
             return ResponseHelper::error(message: "Workspace not found for this user", statusCode: 404);
         }
 
-        DB::table('user_workspace')
-            ->where('user_id', $user_id)
-            ->update(['is_default' => false]);
+        // Begin transaction
+        DB::transaction(function () use ($user_id, $workspace_id) {
+            // Step 1: Set all workspaces to non-default for this user where is_default = true
+            DB::table('user_workspace')
+                ->where('user_id', $user_id)
+                ->where('is_default', 1)
+                ->update(['is_default' => false]);
 
-        DB::table('user_workspace')
-            ->where('user_id', $user_id)
-            ->where('workspace_id', $workspace_id)
-            ->update(['is_default' => true]);
+            // Step 2: Set the selected workspace as default
+            DB::table('user_workspace')
+                ->where('user_id', $user_id)
+                ->where('workspace_id', $workspace_id)
+                ->update(['is_default' => true]);
+        });
 
-        DB::commit();
-
+        // Return success response
         return ResponseHelper::success(message: "Default workspace updated successfully", data: new UserResource($user));
     } catch (\Throwable $th) {
-        DB::rollBack();
+        Log::error($th->getMessage());
         return ResponseHelper::error(message: "An error occurred", statusCode: 500);
+    }
+}
+
+
+public function updateUserDepartment(Request $request)
+{
+    try {
+        $user = User::find($request->user_id);
+        $department = Department::find($request->department_id);
+
+        if(!$user || !$department) {
+            return ResponseHelper::error(message:"user or department not found", statusCode:404);
+        }
+        $user->department_id = $department->id;
+        $user->save();
+        return ResponseHelper::success(message:"user department changed successfully");
+    } catch (\Throwable $th) {
+        Log::error("AuthController::updateDepartment() " . $th->getMessage());
     }
 }
 

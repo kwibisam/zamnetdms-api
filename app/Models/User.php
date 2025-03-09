@@ -56,6 +56,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get user department
+     */
+     public function department()
+     {
+        return $this->belongsTo(Department::class);
+     }
+
+    /**
      * Get user WorkSpaces
      */
 
@@ -64,12 +72,12 @@ class User extends Authenticatable
         return $this->belongsToMany(WorkSpace::class, 'user_workspace', 'user_id', 'workspace_id');
      }
 
-     public function defaultWorkspace()
-     {
-        return $this->belongsToMany(WorkSpace::class, 'user_workspace', 'user_id', 'workspace_id')
-        ->wherePivot('is_default', true)
-        ->withPivot('is_default');
-     }
+    //  public function defaultWorkspace()
+    //  {
+    //     return $this->belongsToMany(WorkSpace::class, 'user_workspace', 'user_id', 'workspace_id')
+    //     ->wherePivot('is_default', true)
+    //     ->withPivot('is_default');
+    //  }
 
 
     /**

@@ -1,17 +1,12 @@
 <?php
-
 namespace App\Providers;
-
-use App\Models\Document;
+use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
-use App\Models\WorkSpace;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
-
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -21,55 +16,47 @@ class AppServiceProvider extends ServiceProvider
     {
         //
     }
-
     /**
      * Bootstrap any application services.
      */
     public function boot(): void
     {
-       
+
+        try {
+            if (!Schema::hasTable('roles') ||
+                !Schema::hasTable('workspaces') ||
+                !Schema::hasTable('users') ||
+                !Schema::hasTable('departments') ||
+                !Schema::hasTable('user_workspace')) { return;}
         
-        $adminRole = Role::firstOrCreate([
-            'name' => 'admin'
-        ]);
+        if(!User::where('email', 'admin@dms.zm')->first()) {
+            Log::info("AppServiceProvider: no default user. Creating one...");
+            $adminUser = new User();
+            $adminUser->email = "admin@dms.zm";
+            $adminUser->name = "admin";
+            $adminUser->password = Hash::make('password');
 
-        $defaultWorkSpace = WorkSpace::firstOrCreate([
-            'name' => 'default'
-        ]);
+            $defaultDept = Department::Create(['name' => 'default']);
+            $adminUser->department_id = $defaultDept->id;
 
-        $adminUser = User::updateOrCreate(
-            ['email' => 'admin@dms.zm'],
-            [
-            'name' => 'admin',
-            'email' => 'admin@dms.zm',
-            'password' => Hash::make('password')
-        ]);
+            $adminUser->save();
 
-        if(!$adminUser->roles()->where('name', 'admin')->exists()) {
+            $adminRole = Role::Create(['name' => 'admin']);
             $adminUser->roles()->attach($adminRole->id);
         }
 
-        if(!$adminUser->workspaces()->where('name', 'default')->exists()) {
-            $adminUser->workspaces()->attach($defaultWorkSpace->id);
-        }
+        // $adminUser = User::firstOrCreate(
+        //     ['email' => 'admin@dms.zm'],
+        //     [
+        //     'name' => 'admin',
+        //     'email' => 'admin@dms.zm',
+        //     'department_id' => $defaultDept->id,
+        //     'password' => Hash::make('password')
+        // ]);
 
-        try {
-            $user_id = $adminUser->id;
-            $workspace_id = $defaultWorkSpace->id;
-            DB::beginTransaction();
-    
-            DB::table('user_workspace')
-                ->where('user_id', $user_id)
-                ->update(['is_default' => false]);
-    
-            DB::table('user_workspace')
-                ->where('user_id', $user_id)
-                ->where('workspace_id', $workspace_id)
-                ->update(['is_default' => true]);
-            DB::commit();    
         } catch (\Throwable $th) {
-            DB::rollBack();
-            Log::error("AppServiceProvider:: " . $th->getMessage() . "on line " . $th->getLine());
+            //throw $th;
+            Log::error("AppServiceProvider::boot() " . $th->getMessage());
         }
     }
 }
