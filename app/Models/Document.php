@@ -22,14 +22,6 @@ class Document extends Model
     }
 
     /**
-     * Get departnent
-     */
-    public function department()
-    {
-      return $this->belongsTo(Department::class);
-    }
-
-    /**
      * Get document workspace
      */
     public function workspace ()

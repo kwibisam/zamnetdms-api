@@ -27,21 +27,24 @@ class DocumentController extends Controller
         try {
             $user = Auth::user();
             $workSpace = WorkSpace::find($request->workspace_id);
-            $documentType = DocumentType::find($request->document_type);
+            $documentType = DocumentType::find($request->type_id);
 
             $tagList = explode(',', $request->tags);
             $tags = Tag::whereIn('id', $tagList)->get();
 
             if(!$user)
             {
+                Log::error("DocumentController::store user not found");
                 return ResponseHelper::error(message: "user not found", statusCode: 400);
             }
             if(!$workSpace)
             {
+                 Log::error("DocumentController::store workspace not found");
                 return ResponseHelper::error(message: "workspace not found", statusCode: 400);
             }
             if(!$documentType)
             {
+                Log::error("DocumentController::store documentType not found");
                 return ResponseHelper::error(message: "document type not found", statusCode: 400);
             }
 
@@ -136,72 +139,77 @@ class DocumentController extends Controller
        */
       public function update(Request $request, $document_id)
       {
+        
         DB::beginTransaction();
         try {
+            $user = Auth::user();
+              if(!$user)
+            {
+                Log::error("DocumentController::store user not found");
+                return ResponseHelper::error(message: "user not found", statusCode: 400);
+            }
             $document = Document::find($document_id);
-           
-           
             if(!$document)
             {
                 return ResponseHelper::error(message: "document not found", statusCode:404);
             }
 
-            $updateResponse = Gate::inspect('update', $document);
-            if(!$updateResponse->allowed()){
-                return ResponseHelper::error(message: $updateResponse->message(), statusCode:403);
-            }
+            // $updateResponse = Gate::inspect('update', $document);
+            // if(!$updateResponse->allowed()){
+            //     return ResponseHelper::error(message: $updateResponse->message(), statusCode:403);
+            // }
 
-            if($request->filled('title'))
-            {
-                $document->title = $request->input('title');
-            }
+            // if($request->filled('title'))
+            // {
+            //     $document->title = $request->input('title');
+            //     $document->save();
+            // }
 
-            if ($request->filled('tags')) {
-                $tagList = explode(',', $request->input('tags'));
-                $tags = Tag::whereIn('id', $tagList)->get();
-                $document->tags()->sync($tags); // Sync tags for a many-to-many relationship
-            }
-
-
-            $document->save();
-
-            $version = new DocumentVersion();
+            // if ($request->filled('tags')) {
+            //     $tagList = explode(',', $request->input('tags'));
+            //     $tags = Tag::whereIn('id', $tagList)->get();
+            //     $document->tags()->sync($tags); // Sync tags for a many-to-many relationship
+            //     $document->save();
+            // }
+            // $version = new DocumentVersion();
             
-            if ($request->hasFile('file')) {
-                $storedPath = $request->file('file')->store('documents', 'public');
-                $filePath = asset('storage/' . $storedPath);
-                $version->file_path = $filePath;
-            }
+            // if ($request->hasFile('file')) {
+            //     $storedPath = $request->file('file')->store('documents', 'public');
+            //     $filePath = asset('storage/' . $storedPath);
+            //     $version->file_path = $filePath;
+            // }
             
             if($request->filled('content'))
             {
-                $version->content = $request->input('content');
+                $version = new DocumentVersion();
+                // $version->content = $request->input('content');
+                $lastVersion = DocumentVersion::where('document_id', $document->id)
+                ->orderBy('version_number', 'desc')
+                ->first();
+                $newVersionNumber = $lastVersion ? $lastVersion->version_number + 1 : 1;    
+                $version->version_number = $newVersionNumber;
+                $version->content = $request->content;
+                $version->document_id = $document->id;
+                $version->created_by = $user->id;
+
+                $version->save();
             }
 
-            $lastVersion = DocumentVersion::where('document_id', $document->id)
-            ->orderBy('version_number', 'desc')
-            ->first();
-
-            $newVersionNumber = $lastVersion ? $lastVersion->version + 1 : 1;
-            $version->version_number = $newVersionNumber;
-
-            $version->save();
-            DB::commit();
-
-            $data = [
-                'document' => $document,
-                'version' => $version
-            ];
-        
-            return ResponseHelper::success(message: 'Document updated successfully', data: new DocumentResource($data));
+            // $lastVersion = DocumentVersion::where('document_id', $document->id)
+            // ->orderBy('version_number', 'desc')
+            // ->first();
+            // $newVersionNumber = $lastVersion ? $lastVersion->version_number + 1 : 1;
+            // $version->version_number = $newVersionNumber;
+            // $version->save();
+            // DB::commit();
+            // return ResponseHelper::success(message: 'Document updated successfully', data: new DocumentResource($document));
 
         } catch (\Throwable $th) {
             DB::rollBack();
-            Log::error('DocumentController::update() ' . $th->getMessage());
+            Log::error('DocumentController::update() ' . "line: ". $th->getLine() . " "  . $th->getMessage());
             return ResponseHelper::error(message: 'failed to update document', statusCode:500);
         }
       }
-
       /**
        * Delete Document
        */
@@ -216,7 +224,7 @@ class DocumentController extends Controller
             $document->delete();
             return ResponseHelper::success(message: "document deleted successfully");
         } catch (\Throwable $th) {
-            Log::error('DocumentController::delete() ' . $th->getMessage());
+            Log::error('DocumentController::delete() ' . "line: ". $th->getLine() . " " . $th->getMessage());
             return ResponseHelper::error(message: "failed to delete document", statusCode:500);
         }
       }
