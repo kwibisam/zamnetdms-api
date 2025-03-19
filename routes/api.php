@@ -10,7 +10,21 @@ use App\Http\Controllers\Api\WorkSpaceController;
 use Illuminate\Support\Facades\Route;
 
 
+
+
+
+// Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
+//     $request->fulfill();
+
+//     return redirect('/home');
+// })->middleware(['auth', 'signed'])->name('verification.verify');
+
+
 Route::controller(AuthController::class)->group(function() {
+
+    Route::delete('users/delete', 'index2');
+
+    Route::get('/email/verify/{id}/{hash}', 'verifyEmail')->middleware(['auth', 'signed'])->name('verification.verify');
     Route::post('register', 'register')->middleware('auth:sanctum');
     Route::post('login', 'login');
     Route::get('users', 'index')->middleware('auth:sanctum');
@@ -18,8 +32,9 @@ Route::controller(AuthController::class)->group(function() {
     Route::get('users/{id}','show')->middleware('auth:sanctum');
     Route::post('logout', 'logout')->middleware('auth:sanctum');
 
+    Route::get('users/{id}', 'index');
+
     Route::put('users/{user_id}/workspaces/{workspace_id}', 'addUserToWorkSpace')->middleware('auth:sanctum');
-    // Route::put('users/{user_id}/workspaces/default/{workspace_id}', 'setDefaultWorkspace')->middleware('auth:sanctum');
 
     Route::delete('users/{user_id}/workspaces/{workspace_id}', 'removeUserFromWorkSpace')->middleware('auth:sanctum');
 
@@ -32,6 +47,7 @@ Route::controller(AuthController::class)->group(function() {
 
 Route::controller(RolesController::class)
 ->group(function() {
+
     Route::post('roles', 'store');
     Route::get('roles','index');
     Route::get('roles/{id}','show');
@@ -64,10 +80,13 @@ Route::controller(DocumentController::class)
 ->group(function ()
 {
     Route::post('documents', 'store')->middleware('auth:sanctum');
+    Route::post('documents/{id}', 'update')->middleware('auth:sanctum');
     Route::get('documents', 'index');
     Route::get('documents/{id}', 'show');
     Route::put('documents/{id}', 'update')->middleware('auth:sanctum');
     Route::delete('documents/{id}', 'delete');
+    // Route::post('documents', 'testUpdate');
+   
 });
 
 Route::controller(DocumentTypesController::class)

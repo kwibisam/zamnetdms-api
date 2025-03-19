@@ -158,31 +158,23 @@ class DocumentController extends Controller
             // if(!$updateResponse->allowed()){
             //     return ResponseHelper::error(message: $updateResponse->message(), statusCode:403);
             // }
-
-            // if($request->filled('title'))
-            // {
-            //     $document->title = $request->input('title');
-            //     $document->save();
-            // }
-
-            // if ($request->filled('tags')) {
-            //     $tagList = explode(',', $request->input('tags'));
-            //     $tags = Tag::whereIn('id', $tagList)->get();
-            //     $document->tags()->sync($tags); // Sync tags for a many-to-many relationship
-            //     $document->save();
-            // }
-            // $version = new DocumentVersion();
-            
-            // if ($request->hasFile('file')) {
-            //     $storedPath = $request->file('file')->store('documents', 'public');
-            //     $filePath = asset('storage/' . $storedPath);
-            //     $version->file_path = $filePath;
-            // }
-            
-            if($request->filled('content'))
+            if($request->filled('title'))
             {
+                $document->title = $request->input('title');
+                // $document->save();
+            }
+
+            if ($request->filled('tags')) {
+                $tagList = explode(',', $request->input('tags'));
+                $tags = Tag::whereIn('id', $tagList)->get();
+                $document->tags()->sync($tags); // Sync tags for a many-to-many relationship
+                // $document->save();
+            }
+
+            $document->save();
+
+            if($request->filled('content')) {
                 $version = new DocumentVersion();
-                // $version->content = $request->input('content');
                 $lastVersion = DocumentVersion::where('document_id', $document->id)
                 ->orderBy('version_number', 'desc')
                 ->first();
@@ -195,19 +187,44 @@ class DocumentController extends Controller
                 $version->save();
             }
 
-            // $lastVersion = DocumentVersion::where('document_id', $document->id)
-            // ->orderBy('version_number', 'desc')
-            // ->first();
-            // $newVersionNumber = $lastVersion ? $lastVersion->version_number + 1 : 1;
-            // $version->version_number = $newVersionNumber;
-            // $version->save();
-            // DB::commit();
-            // return ResponseHelper::success(message: 'Document updated successfully', data: new DocumentResource($document));
+            Log::info("DocumentController: checking if the document has file ". $request->file);
+          
+
+
+            if ($request->hasFile('file')) {
+                Log::info("DocumentController: the document has file");
+                $version = new DocumentVersion();
+                $lastVersion = DocumentVersion::where('document_id', $document->id)
+                ->orderBy('version_number', 'desc')
+                ->first();
+                $newVersionNumber = $lastVersion ? $lastVersion->version_number + 1 : 1;    
+                $version->version_number = $newVersionNumber;
+
+                $storedPath = $request->file('file')->store('documents', 'public');
+                $filePath = asset('storage/' . $storedPath);
+                $version->file_path = $filePath;
+                $version->document_id = $document->id;
+                $version->created_by = $user->id;
+
+                $version->save();
+            }    
+
+            DB::commit();
+            return ResponseHelper::success(message: 'Document updated successfully', data: new DocumentResource($document));
 
         } catch (\Throwable $th) {
             DB::rollBack();
             Log::error('DocumentController::update() ' . "line: ". $th->getLine() . " "  . $th->getMessage());
             return ResponseHelper::error(message: 'failed to update document', statusCode:500);
+        }
+      }
+
+
+      public function testUpdate(Request $request) {
+        if($request->hasFile('file')) {
+            return response()->json(["message" => "file is present in the request"]);
+        }else{
+            return response()->json(["message" => "theres no file"], 400);
         }
       }
       /**
