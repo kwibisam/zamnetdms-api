@@ -11,6 +11,8 @@ use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkSpace;
+use Illuminate\Auth\Events\Registered;
+use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,6 +31,32 @@ class AuthController extends Controller
         $users = User::all();
         // return response()->json(['message' => UserResource::collection($users)]);
         return ResponseHelper::success(message:"users fetched successfully", data: UserResource::collection($users));
+    }
+
+
+      public function delete($user_id)
+    {
+        if (!Auth::check()) {
+            return ResponseHelper::error(message: "Unauthorized", statusCode: 401);
+        }
+
+        $response = Gate::inspect('register', Auth::user());
+        if ($response->denied()) {
+            return ResponseHelper::error(message: $response->message(), statusCode: $response->code());
+        }
+
+        try {
+            $user = User::find($user_id);
+            if(!$user)
+            {
+                return ResponseHelper::error(message:"user not found", statusCode:404);
+            }
+            $user->delete();
+            return ResponseHelper::success(message: "user deleted");
+        } catch (\Throwable $th) {
+            Log::error("AuthController::delete() " . $th->getMessage());
+            return ResponseHelper::error(message:"user not found", statusCode:404);
+        }
     }
 
     /**
@@ -63,6 +91,8 @@ class AuthController extends Controller
         $userRole = Role::firstOrCreate(['name' => 'user']);
         $user->roles()->attach($userRole->id);
         DB::commit();
+         
+        event(new Registered($user));
 
         return ResponseHelper::success(
             message: "User created successfully",
@@ -151,7 +181,6 @@ class AuthController extends Controller
         }
     }
 
-
       /**
      * Deletes auth user token
      * @return JsonResponse
@@ -172,7 +201,6 @@ class AuthController extends Controller
             return ResponseHelper::error(message: 'failed to logout user', statusCode: 500);
         }
     }
-
 
     /**
      * Remove the specified resource from storage.
@@ -278,10 +306,8 @@ class AuthController extends Controller
         }
     }
 
-  
-
-public function setDefaultWorkspace($user_id, $workspace_id)
-{
+    public function setDefaultWorkspace($user_id, $workspace_id)
+    {
     try {
         // Find the user
         $user = User::find($user_id);
@@ -320,11 +346,11 @@ public function setDefaultWorkspace($user_id, $workspace_id)
         Log::error($th->getMessage());
         return ResponseHelper::error(message: "An error occurred", statusCode: 500);
     }
-}
+    }
 
 
-public function updateUserDepartment(Request $request)
-{
+    public function updateUserDepartment(Request $request)
+    {
     try {
         $user = User::find($request->user_id);
         $department = Department::find($request->department_id);
@@ -338,6 +364,18 @@ public function updateUserDepartment(Request $request)
     } catch (\Throwable $th) {
         Log::error("AuthController::updateDepartment() " . $th->getMessage());
     }
-}
+    }
+
+    public function verifyEmail(EmailVerificationRequest $request)
+    {
+        try {
+
+            $request->fulfill();
+            return ResponseHelper::success(message: "email verified");
+        } catch (\Throwable $th) {
+            Log::error("AuthController::verifyEmail() " . $th->getMessage());
+            return ResponseHelper::error(message: "email verification failed", statusCode: 400);
+        }
+    }
 
 }

@@ -22,9 +22,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::controller(AuthController::class)->group(function() {
 
-    Route::delete('users/delete', 'index2');
+    Route::delete('users/{id}', 'delete')->middleware('auth:sanctum');
 
-    Route::get('/email/verify/{id}/{hash}', 'verifyEmail')->middleware(['auth', 'signed'])->name('verification.verify');
+    Route::get('/email/verify/{id}/{hash}', 'verifyEmail')->middleware(['auth:sanctum', 'signed'])->name('verification.verify');
     Route::post('register', 'register')->middleware('auth:sanctum');
     Route::post('login', 'login');
     Route::get('users', 'index')->middleware('auth:sanctum');

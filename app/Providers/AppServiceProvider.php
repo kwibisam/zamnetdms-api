@@ -3,9 +3,13 @@ namespace App\Providers;
 use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 class AppServiceProvider extends ServiceProvider
 {
@@ -21,6 +25,20 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+
+        VerifyEmail::createUrlUsing(function (object $notifiable) {
+        $verificationUrl = URL::temporarySignedRoute(
+            'verification.verify',
+            Carbon::now()->addMinutes(Config::get('auth.verification.expire', 60)),
+            [
+                'id' => $notifiable->getKey(),
+                'hash' => sha1($notifiable->getEmailForVerification()),
+            ]
+        );
+
+        return config('app.frontend_url')."?url=".$verificationUrl;
+        });
+
 
         try {
             if (!Schema::hasTable('roles') ||
@@ -44,16 +62,6 @@ class AppServiceProvider extends ServiceProvider
             $adminRole = Role::Create(['name' => 'admin']);
             $adminUser->roles()->attach($adminRole->id);
         }
-
-        // $adminUser = User::firstOrCreate(
-        //     ['email' => 'admin@dms.zm'],
-        //     [
-        //     'name' => 'admin',
-        //     'email' => 'admin@dms.zm',
-        //     'department_id' => $defaultDept->id,
-        //     'password' => Hash::make('password')
-        // ]);
-
         } catch (\Throwable $th) {
             //throw $th;
             Log::error("AppServiceProvider::boot() " . $th->getMessage());
