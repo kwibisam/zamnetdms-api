@@ -81,8 +81,8 @@ Route::controller(DocumentController::class)
 {
     Route::post('documents', 'store')->middleware('auth:sanctum');
     Route::post('documents/{id}', 'update')->middleware('auth:sanctum');
-    Route::get('documents', 'index');
-    Route::get('documents/recent', 'recentDocuments');
+    Route::get('documents', 'index')->middleware('auth:sanctum');;
+    Route::get('documents/recent', 'recentDocuments')->middleware('auth:sanctum');;
     Route::get('documents/{id}', 'show');
     Route::put('documents/{id}', 'update')->middleware('auth:sanctum');
     Route::delete('documents/{id}', 'delete');

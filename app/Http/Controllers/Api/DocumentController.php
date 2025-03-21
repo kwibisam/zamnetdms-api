@@ -9,6 +9,7 @@ use App\Models\Document;
 use App\Models\DocumentType;
 use App\Models\DocumentVersion;
 use App\Models\Tag;
+use App\Models\User;
 use App\Models\WorkSpace;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -104,16 +105,40 @@ class DocumentController extends Controller
     /**
      * Get documents
      */
-     public function index()
-     {
-        try {
-            $documents = Document::all();
-            return ResponseHelper::success(message:"documents fetched successfully", data: DocumentResource::collection($documents));
-        } catch (\Throwable $th) {
-            Log::error('DocumentController::index() ' . $th->getMessage());
-            return ResponseHelper::error(message:"failed to fetch documents", statusCode: 500);
+     public function index(Request $request)
+{
+    try {
+        $user = Auth::user();
+        if (!$user) {
+            return ResponseHelper::error(message: "Not authorized", statusCode: 401);
         }
-     }
+        
+        $response = Gate::inspect('getAllDocuments', Auth::user());
+        if ($response->allowed()) {
+               $documents = Document::all();
+              return ResponseHelper::success(
+            message: "Documents fetched successfully",
+            data: DocumentResource::collection($documents)
+        );
+        }
+        // Get the workspace IDs associated with the user using the user_id
+        $workspaceIds = DB::table('user_workspace')
+            ->where('user_id', $user->id)
+            ->pluck('workspace_id'); // Get all workspace IDs for the authenticated user
+
+        // Fetch documents belonging to the user's workspaces
+        $documents = Document::whereIn('workspace_id', $workspaceIds)->get();
+
+        return ResponseHelper::success(
+            message: "Documents fetched successfully",
+            data: DocumentResource::collection($documents)
+        );
+    } catch (\Throwable $th) {
+        Log::error('DocumentController::index() ' . $th->getMessage());
+        return ResponseHelper::error(message: "Failed to fetch documents", statusCode: 500);
+    }
+}
+
 
      /**
       * Get Document
@@ -220,47 +245,34 @@ class DocumentController extends Controller
       }
 
 
-      public function testUpdate(Request $request) {
-        if($request->hasFile('file')) {
-            return response()->json(["message" => "file is present in the request"]);
-        }else{
-            return response()->json(["message" => "theres no file"], 400);
-        }
-      }
-      /**
-       * Delete Document
-       */
-      public function delete($document_id)
-      {
-        try {
-            $document = Document::find($document_id);
-            if(!$document)
-            {
-                return ResponseHelper::error(message: 'document not found', statusCode:404);
-            }
-            $document->delete();
-            return ResponseHelper::success(message: "document deleted successfully");
-        } catch (\Throwable $th) {
-            Log::error('DocumentController::delete() ' . "line: ". $th->getLine() . " " . $th->getMessage());
-            return ResponseHelper::error(message: "failed to delete document", statusCode:500);
-        }
-      }
-
-    public function recentDocuments(Request $request)
-    {
+      public function recentDocuments(Request $request)
+{
     try {
-        $limit = $request->query('limit', 5); // Default to 10 recent documents
-        $documents = Document::orderBy('created_at', 'desc')
+        $user = Auth::user();
+        if (!$user) {
+            return ResponseHelper::error(message: "Not authorized", statusCode: 401);
+        }
+
+        $limit = $request->query('limit', 5); // Default to 5 recent documents
+
+        $workspaceIds = DB::table('user_workspace')
+            ->where('user_id', $user->id)
+            ->pluck('workspace_id'); // Get workspace IDs linked to the user
+
+        // Now, filter documents by the workspace IDs
+        $documents = Document::whereIn('workspace_id', $workspaceIds)
+            ->orderBy('created_at', 'desc')
             ->limit($limit)
             ->get();
-
         return ResponseHelper::success(
             message: "Recent documents fetched successfully",
             data: DocumentResource::collection($documents)
         );
-    } catch (\Throwable $th) {
-        Log::error('DocumentController::recentDocuments() ' . $th->getMessage());
-        return ResponseHelper::error(message: "Failed to fetch recent documents", statusCode: 500);
+    } catch (\Exception $e) {
+        Log::error("DocumentController::recentDocuments", $e->getMessage());
+        return ResponseHelper::error(message: "Something went wrong", statusCode: 500);
     }
 }
+
+
 }

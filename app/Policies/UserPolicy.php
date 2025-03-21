@@ -46,6 +46,15 @@ class UserPolicy
     }
 
     
+
+     public function getAllDocuments(User $user): Response
+    {
+        if($user->hasRole('admin')){
+            return Response::allow();
+        }
+        return Response::deny(message: "User not authorized to perform this action", code:403);
+        
+    }
     /**
      * Determine if user can update user roles
      */
