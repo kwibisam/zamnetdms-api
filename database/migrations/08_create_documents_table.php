@@ -22,11 +22,7 @@ return new class extends Migration
             ->constrained(table: 'users')
             ->nullOnDelete();
             
-            // $table->unsignedBigInteger('department_id');
-            // $table->foreign('department_id')
-            // ->references('id')
-            // ->on('departments')
-            // ->restrictOnDelete();
+    
 
             $table->unsignedBigInteger('document_type');
             $table->foreign('document_type')
