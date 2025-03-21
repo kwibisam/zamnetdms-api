@@ -21,6 +21,7 @@ class UserResource extends JsonResource
             'workspaces' => $this->workspaces,
             'department' => $this->department,
             'roles' => $this->roles,
+            'isAdmin' => $this->roles->contains('name', 'admin'),
         ];
     }
 }

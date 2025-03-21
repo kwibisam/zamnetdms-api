@@ -10,16 +10,6 @@ use App\Http\Controllers\Api\WorkSpaceController;
 use Illuminate\Support\Facades\Route;
 
 
-
-
-
-// Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
-//     $request->fulfill();
-
-//     return redirect('/home');
-// })->middleware(['auth', 'signed'])->name('verification.verify');
-
-
 Route::controller(AuthController::class)->group(function() {
 
     Route::delete('users/{id}', 'delete')->middleware('auth:sanctum');
@@ -32,7 +22,9 @@ Route::controller(AuthController::class)->group(function() {
     Route::get('users/{id}','show')->middleware('auth:sanctum');
     Route::post('logout', 'logout')->middleware('auth:sanctum');
 
-    Route::get('users/{id}', 'index');
+    Route::get('users/{id}', 'show');
+
+    Route::post('change-password/{id}', 'changePassword')->middleware('auth:sanctum');
 
     Route::put('users/{user_id}/workspaces/{workspace_id}', 'addUserToWorkSpace')->middleware('auth:sanctum');
 
@@ -43,6 +35,14 @@ Route::controller(AuthController::class)->group(function() {
     Route::put('users/{user_id}/roles/{role_id}', 'addRoleToUser')->middleware('auth:sanctum');
 
     Route::put('users/{user_id}/departments/{department_id}', 'updateUserDepartment')->middleware('auth:sanctum');
+
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
+                ->middleware('guest')
+                ->name('password.forgot');
+
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])
+                ->middleware('guest')
+                ->name('password.reset');
 });
 
 Route::controller(RolesController::class)

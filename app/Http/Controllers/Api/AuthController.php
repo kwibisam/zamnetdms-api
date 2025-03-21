@@ -11,6 +11,7 @@ use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkSpace;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Support\Facades\Gate;
@@ -20,6 +21,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -115,7 +119,6 @@ class AuthController extends Controller
      */
     public function login (LoginRequest $request)
     {
-        Log::info("Login function called: ");
         try {
 
             // dd(Auth::attempt(['email' => $request->email, 'password' => $request->password]));
@@ -378,4 +381,76 @@ class AuthController extends Controller
         }
     }
 
+
+    public function changePassword(Request $request, $user_id)
+    {
+         try {
+            $user = User::find($user_id);
+            if (!$user) {
+                return ResponseHelper::error(message: "User not found", statusCode: 404);
+            }
+
+            $currentPassword = $request->current_password;
+            $newPassword = $request->new_password;
+
+            if (!Hash::check($currentPassword, $user->password)) {
+                return ResponseHelper::error(message: "Current password is wrong", statusCode: 401);
+            }
+
+            $user->password = Hash::make($newPassword);
+            $user->save();
+
+            return ResponseHelper::success(message: "password changed successfully", data: $user);
+
+        } catch (\Throwable $th) {
+            //throw $th;
+            Log::error("AuthController::resetPassword");
+            return ResponseHelper::error(message: "password changed failed", statusCode: 500);
+        }
+    }
+
+
+     public function forgotPassword(Request $request)
+    {
+        // We will send the password reset link to this user. Once we have attempted
+        // to send the link, we will examine the response then see the message we
+        // need to show to the user. Finally, we'll send out a proper response.
+        $status = Password::sendResetLink(
+            $request->only('email')
+        );
+
+        if ($status != Password::RESET_LINK_SENT) {
+            throw ValidationException::withMessages([
+                'email' => [__($status)],
+            ]);
+        }
+
+        return response()->json(['status' => __($status)]);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        // Here we will attempt to reset the user's password. If it is successful we
+        // will update the password on an actual user model and persist it to the
+        // database. Otherwise we will parse the error and return the response.
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function ($user) use ($request) {
+                $user->forceFill([
+                    'password' => Hash::make($request->string('password')),
+                    'remember_token' => Str::random(60),
+                ])->save();
+
+                event(new PasswordReset($user));
+            }
+        );
+
+        if ($status != Password::PASSWORD_RESET) {
+            throw ValidationException::withMessages([
+                'email' => [__($status)],
+            ]);
+        }
+
+        return response()->json(['status' => __($status)]);
+    }
 }

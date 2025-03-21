@@ -4,6 +4,7 @@ use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Hash;
@@ -25,6 +26,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        ResetPassword::createUrlUsing(function (object $notifiable, string $token) {
+            return config('app.frontend_url')."/reset-password?token=$token&email={$notifiable->getEmailForPasswordReset()}";
+        });
 
         VerifyEmail::createUrlUsing(function (object $notifiable) {
         $verificationUrl = URL::temporarySignedRoute(
@@ -36,7 +40,7 @@ class AppServiceProvider extends ServiceProvider
             ]
         );
 
-        return config('app.frontend_url')."?url=".$verificationUrl;
+        return config('app.frontend_url')."/verify-email"."?url=".$verificationUrl;
         });
 
 
