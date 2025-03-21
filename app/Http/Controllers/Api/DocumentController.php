@@ -245,4 +245,22 @@ class DocumentController extends Controller
             return ResponseHelper::error(message: "failed to delete document", statusCode:500);
         }
       }
+
+    public function recentDocuments(Request $request)
+    {
+    try {
+        $limit = $request->query('limit', 5); // Default to 10 recent documents
+        $documents = Document::orderBy('created_at', 'desc')
+            ->limit($limit)
+            ->get();
+
+        return ResponseHelper::success(
+            message: "Recent documents fetched successfully",
+            data: DocumentResource::collection($documents)
+        );
+    } catch (\Throwable $th) {
+        Log::error('DocumentController::recentDocuments() ' . $th->getMessage());
+        return ResponseHelper::error(message: "Failed to fetch recent documents", statusCode: 500);
+    }
+}
 }
